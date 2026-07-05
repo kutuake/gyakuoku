@@ -276,31 +276,47 @@ async function camPicked(inp){
   const btn=document.getElementById('cam-btn');
   btn.disabled=true;
   readStatus('<span class="spin"></span>AIが写真を読み取り中…(数秒かかります)');
+  let stage='画像の読み込み';
   try{
-    const b64=await fileToB64(file);
+    let b64;
+    try{
+      b64=await fileToB64(file);
+    }catch(e){
+      throw new Error('この画像形式を読み込めませんでした。アルバムからの選択ではなく、ボタンから直接カメラで撮影してみてください(iPhoneの場合は 設定 > カメラ > フォーマット を「互換性優先」にすると確実です)');
+    }
+    stage='AIとの通信';
     const rule=S.manUnit
       ?'手書きの数字は万円単位として円に換算する(0.8→8000, 1.5→15000, 13→130000)。'
       :'手書きの数字はそのまま円として扱う(800→800)。';
     const prompt='この写真はポケモンカードの逆オークション出品物です。次の情報を読み取り、JSONだけを返してください。前置き、説明、コードブロック記号は一切禁止です。\n'+
       '{"name":"カード名(カード上部に印刷された名前。例: ひかるセレビィ)","number":"カード下部の型番(例: 004/072)。読めなければnull","grade":"PSA等の鑑定ラベルがあれば簡潔に(例: PSA10)。なければnull","price_text":"手書きの値札シールの数字を書かれたまま(例: 0.8)。なければnull","price_yen":値札を円に換算した整数。なければnull}\n'+
       '価格のルール: '+rule+'\n読み取れない項目は必ずnullにしてください。';
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
-          {type:'text',text:prompt}
-        ]}]
-      })
-    });
+    let resp;
+    try{
+      resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-6',
+          max_tokens:1000,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+            {type:'text',text:prompt}
+          ]}]
+        })
+      });
+    }catch(e){
+      throw new Error('AIに接続できませんでした。このアプリの読み取り機能はClaudeアプリ/Claude.aiの画面内でのみ動作します。ファイルをダウンロードしてブラウザで開いている場合は、Claudeの会話内のプレビューから開き直してください');
+    }
+    stage='AIの応答';
     const data=await resp.json();
-    if(!data.content)throw new Error(data.error?JSON.stringify(data.error):'no content');
+    if(data.error)throw new Error('APIエラー('+(data.error.type||resp.status)+'): '+(data.error.message||''));
+    if(!data.content)throw new Error('応答が空でした(status '+resp.status+')');
     const text=data.content.map(c=>c.type==='text'?c.text:'').join('');
-    const clean=text.replace(/```json|```/g,'').trim();
-    const j=JSON.parse(clean);
+    stage='結果の解析';
+    const m=text.match(/\{[\s\S]*\}/);
+    if(!m)throw new Error('AIの応答を解析できませんでした: '+text.slice(0,120));
+    const j=JSON.parse(m[0]);
 
     const nameParts=[j.name,j.number,j.grade].filter(x=>x&&x!=='null');
     if(nameParts.length)document.getElementById('in-name').value=nameParts.join(' ');
@@ -315,7 +331,9 @@ async function camPicked(inp){
     document.getElementById('in-bidder').focus();
   }catch(e){
     console.error(e);
-    readStatus('読み取りに失敗しました。もう一度撮影するか、手入力してください。');
+    readStatus('<b class="danger">読み取りに失敗しました</b>(失敗した段階: '+esc(stage)+')<br>'+
+      esc(e.message||String(e))+'<br>'+
+      '<span class="muted">解決しない場合は、この画面のスクリーンショットをClaudeに見せてください。</span>');
   }finally{
     btn.disabled=false;
   }
