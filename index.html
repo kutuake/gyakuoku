@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>逆オク 記録・照合ツール(AI読取版)</title>
+<style>
+:root{
+  --bg:#14181f;
+  --panel:#1d232e;
+  --panel2:#232b38;
+  --line:#2c3442;
+  --text:#e8ecf2;
+  --muted:#8b95a5;
+  --amber:#ffc14d;
+  --red:#e4453f;
+  --red-d:#b53531;
+  --green:#4dc27d;
+  --blue:#5aa2e8;
+  --radius:14px;
+  --num:ui-monospace,'SF Mono','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;-webkit-tap-highlight-color:transparent}
+body{max-width:760px;margin:0 auto;padding:12px 12px 90px;min-height:100vh}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;color:var(--text)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+input,textarea{font-family:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:10px 12px;font-size:16px;width:100%}
+h1{font-size:15px;letter-spacing:.12em;color:var(--muted);font-weight:500;padding:6px 2px 14px;display:flex;align-items:center;gap:8px}
+h1 .dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block}
+h2{font-size:13px;color:var(--muted);font-weight:500;letter-spacing:.08em;margin:18px 0 8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1}
+.muted{color:var(--muted);font-size:12px}
+nav{position:fixed;bottom:0;left:0;right:0;background:rgba(20,24,31,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;max-width:760px;margin:0 auto;z-index:50}
+nav button{flex:1;background:none;padding:14px 0 18px;font-size:13px;color:var(--muted);border-radius:0}
+nav button.on{color:var(--amber);font-weight:700}
+nav .badge{display:inline-block;background:var(--red);color:#fff;border-radius:99px;font-size:10px;padding:1px 6px;margin-left:3px;vertical-align:top}
+section{display:none}
+section.on{display:block}
+.primary{background:var(--amber);color:#1a1408;font-weight:700;padding:12px 20px}
+.ghost{background:var(--panel2);border:1px solid var(--line);padding:10px 14px;font-size:13px}
+.danger{color:#ff8a85}
+.empty{text-align:center;padding:30px 10px;color:var(--muted);font-size:14px;line-height:2}
+label.f{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.chips button{background:var(--panel2);border:1px solid var(--line);padding:9px 14px;font-size:14px;border-radius:99px}
+.big-save{width:100%;background:var(--red);padding:18px 0;font-size:20px;font-weight:700;letter-spacing:.12em;margin-top:14px;box-shadow:0 4px 0 var(--red-d)}
+.big-save:active{transform:translateY(2px);box-shadow:0 2px 0 var(--red-d)}
+.cam-btn{width:100%;background:var(--panel2);border:1px dashed #4a5568;padding:16px 0;font-size:15px;font-weight:700;margin-bottom:4px}
+.cam-btn:active{background:#2c3648}
+.read-info{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px;line-height:1.7;display:none}
+.read-info.on{display:block}
+.read-info b{color:var(--amber)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--muted);border-top-color:var(--amber);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation-duration:2s}}
+.price{font-family:var(--num);color:var(--amber)}
+.chk-price{font-family:var(--num);font-weight:700;font-size:clamp(52px,16vw,92px);color:var(--amber);line-height:1;text-align:center;text-shadow:0 0 24px rgba(255,193,77,.25)}
+.chk-price .yen{font-size:.45em;color:#c99a3f}
+.chk-name{font-size:22px;font-weight:700;text-align:center;margin:6px 0 2px;overflow-wrap:anywhere}
+.chk-bidder{text-align:center;color:var(--muted);font-size:14px}
+.chk-btns{display:flex;gap:10px;margin-top:20px}
+.chk-btns .ok{flex:1.4;background:var(--green);color:#0c2416;font-weight:700;font-size:19px;padding:18px 0;box-shadow:0 4px 0 #37905c}
+.chk-btns .ok:active{transform:translateY(2px);box-shadow:0 2px 0 #37905c}
+.chk-btns .ng{flex:1;background:var(--panel2);border:1px solid var(--red);color:#ff8a85;font-size:16px;font-weight:700}
+.progress{height:6px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:14px 0 4px}
+.progress i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .25s}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);font-weight:500;text-align:left;padding:6px;font-size:11px;letter-spacing:.05em}
+td{padding:8px 6px;border-top:1px solid var(--line);vertical-align:middle;overflow-wrap:anywhere}
+td.pr{font-family:var(--num);color:var(--amber);white-space:nowrap}
+.st{padding:5px 9px;border-radius:99px;font-size:11px;font-weight:700;background:var(--panel2);border:1px solid var(--line);white-space:nowrap}
+.st.s1{color:var(--green);border-color:var(--green)}
+.st.s2{color:var(--blue);border-color:var(--blue)}
+.vmark{font-size:11px;white-space:nowrap}
+.vmark.ok{color:var(--green)}
+.vmark.fix{color:var(--amber)}
+.vmark.no{color:var(--muted)}
+.mini{background:none;color:var(--muted);font-size:12px;padding:4px}
+.sum-card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px}
+.sum-card .total{font-family:var(--num);color:var(--amber);font-size:18px;font-weight:700}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--green);color:#0c2416;font-weight:700;padding:10px 20px;border-radius:99px;font-size:14px;z-index:100;display:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+.toast.on{display:block;animation:pop .25s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes pop{from{transform:translateX(-50%) scale(.6);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+#loading{text-align:center;padding:60px 0;color:var(--muted)}
+#app{display:none}
+.switch{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:10px}
+.switch input{width:auto}
+</style>
+</head>
+<body>
+
+<h1><span class="dot"></span>逆オク 記録・照合ツール <span style="font-size:11px;border:1px solid var(--line);border-radius:99px;padding:2px 8px">AI読取</span></h1>
+
+<div id="loading"><span class="spin"></span>保存データを読み込み中…</div>
+
+<div id="app">
+
+<!-- ===== 入力 ===== -->
+<section id="tab-in" class="on">
+  <div class="card">
+    <button class="cam-btn" id="cam-btn" onclick="openCam()">📷 カードと値札を撮影して自動入力</button>
+    <input type="file" id="cam-file" accept="image/*" capture="environment" style="display:none" onchange="camPicked(this)">
+    <div class="read-info" id="read-status"></div>
+
+    <label class="f">商品名</label>
+    <input id="in-name" placeholder="カード名 型番">
+    <label class="f">落札価格(名前シールを貼った時点の値札)</label>
+    <input id="in-price" type="number" placeholder="例: 8000" inputmode="numeric">
+    <label class="f">落札者(名前シールと同じ名前)</label>
+    <input id="in-bidder" placeholder="リスナー名">
+    <div class="chips" id="in-bidders"></div>
+    <button class="big-save" onclick="addRec()">記録する</button>
+    <div class="switch">
+      <input type="checkbox" id="man-unit" onchange="S.manUnit=this.checked;save()">
+      <label for="man-unit">手書き値札は万円表記として読む(0.8 → ¥8,000)</label>
+    </div>
+    <div class="muted" style="margin-top:8px">AIの読み取りは間違うことがあります。記録前に商品名と金額を必ず確認してください。記録した商品は「照合」タブで実物の値札と突き合わせできます。</div>
+  </div>
+</section>
+
+<!-- ===== 照合 ===== -->
+<section id="tab-chk">
+  <div id="chk-empty" class="card empty">未照合の記録はありません。<br>「入力」タブで落札を記録するとここに出てきます。</div>
+
+  <div id="chk-start" class="card" style="display:none">
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-size:15px;margin-bottom:6px">未照合の記録が <b id="chk-n"></b> 件あります</div>
+      <div class="muted" style="margin-bottom:14px">名前シールを貼ったカードを1枚ずつ手に取り、<br>値札の金額と画面の金額を見比べてください。</div>
+      <button class="primary" onclick="startCheck()">照合をはじめる</button>
+    </div>
+  </div>
+
+  <div id="chk-main" class="card" style="display:none">
+    <div class="muted" id="chk-progress-label"></div>
+    <div class="progress"><i id="chk-bar" style="width:0%"></i></div>
+    <div class="chk-name" id="chk-name"></div>
+    <div class="chk-bidder" id="chk-bidder"></div>
+    <div class="chk-price" style="margin-top:14px"><span class="yen">¥</span><span id="chk-price"></span></div>
+    <div class="muted" style="text-align:center;margin-top:8px">実物の値札はこの金額になっていますか?</div>
+    <div class="chk-btns">
+      <button class="ok" onclick="checkOk()">一致 ✓</button>
+      <button class="ng" onclick="checkNg()">違う…</button>
+    </div>
+    <div class="toolbar" style="justify-content:center;margin-top:14px">
+      <button class="ghost" onclick="skipCheck()">この1枚をあとで</button>
+      <button class="ghost" onclick="endCheck()">中断する</button>
+    </div>
+  </div>
+
+  <div id="chk-fix" class="card" style="display:none">
+    <div class="chk-name" id="fix-name"></div>
+    <div class="muted" style="text-align:center;margin-bottom:10px">記録では ¥<span id="fix-old"></span> でした。どちらが正しいですか?</div>
+    <label class="f">実物の値札の金額(円)</label>
+    <input id="fix-price" type="number" inputmode="numeric" placeholder="値札の金額を円で入力">
+    <div class="chk-btns">
+      <button class="ok" onclick="fixToTag()">値札が正しい(記録を修正)</button>
+    </div>
+    <div class="toolbar" style="justify-content:center;margin-top:10px">
+      <button class="ghost" onclick="fixToRecord()">記録が正しい(値札を貼り替える)</button>
+      <button class="ghost" onclick="cancelFix()">戻る</button>
+    </div>
+  </div>
+
+  <div id="chk-done" class="card" style="display:none;text-align:center;padding:26px 14px">
+    <div style="font-size:34px">✓</div>
+    <div style="font-size:16px;font-weight:700;margin:6px 0">照合が完了しました</div>
+    <div class="muted" id="chk-summary"></div>
+    <button class="primary" style="margin-top:14px" onclick="showTab('rec')">精算・発送へ</button>
+  </div>
+</section>
+
+<!-- ===== 精算・発送 ===== -->
+<section id="tab-rec">
+  <h2 style="margin-top:0">落札者ごとの集計</h2>
+  <div id="sum-list"></div>
+
+  <h2>落札記録 <span id="rec-count"></span></h2>
+  <div class="card" style="overflow-x:auto">
+    <table>
+      <thead><tr><th>時刻</th><th>商品</th><th>価格</th><th>落札者</th><th>照合</th><th>状態</th><th></th></tr></thead>
+      <tbody id="rec-body"></tbody>
+    </table>
+  </div>
+  <div class="toolbar">
+    <button class="primary" id="sheet-btn" onclick="copyNewRows()">シート転記用コピー</button>
+    <button class="ghost" onclick="copyCsv()">CSVをコピー</button>
+    <button class="ghost" onclick="downloadCsv()">CSVをダウンロード</button>
+    <button class="ghost danger" onclick="clearAll()">全データを削除</button>
+  </div>
+  <div class="muted">「シート転記用コピー」はまだ転記していない記録だけをコピーします。Googleスプレッドシートのセルを選んで貼り付けるだけで行が追加されます。価格や名前を後から修正した記録は自動で「未転記」に戻ります。状態はタップで「未精算 → 精算済 → 発送済」と切り替わります。</div>
+</section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<nav>
+  <button id="nav-in" class="on" onclick="showTab('in')">入力</button>
+  <button id="nav-chk" onclick="showTab('chk')">照合<span class="badge" id="chk-badge" style="display:none"></span></button>
+  <button id="nav-rec" onclick="showTab('rec')">精算・発送</button>
+</nav>
+
+<script>
+let S={results:[],seq:1,manUnit:true};
+let checking=null;
+let saveTimer=null;
+
+/* ---------- 保存(アプリ内ストレージ) ---------- */
+async function loadState(){
+  try{
+    const r=await window.storage.get('state');
+    if(r&&r.value){
+      const d=JSON.parse(r.value);
+      if(d&&Array.isArray(d.results))S=Object.assign({results:[],seq:1,manUnit:true},d);
+    }
+  }catch(e){/* 初回はキーが無いので正常 */}
+}
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    try{await window.storage.set('state',JSON.stringify(S))}
+    catch(e){toast('保存に失敗しました');console.error(e)}
+  },300);
+}
+
+function yen(n){return Number(n).toLocaleString('ja-JP')}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.remove('on');void t.offsetWidth;t.classList.add('on');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2200);
+}
+
+/* ---------- tabs ---------- */
+function showTab(t){
+  ['in','chk','rec'].forEach(x=>{
+    document.getElementById('tab-'+x).classList.toggle('on',x===t);
+    document.getElementById('nav-'+x).classList.toggle('on',x===t);
+  });
+  render();
+}
+
+/* ---------- AI写真読み取り ---------- */
+function openCam(){
+  const f=document.getElementById('cam-file');
+  f.value='';f.click();
+}
+function readStatus(html){
+  const el=document.getElementById('read-status');
+  if(html===null){el.classList.remove('on');el.innerHTML=''}
+  else{el.classList.add('on');el.innerHTML=html}
+}
+function fileToB64(file){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const m=1568,k=Math.min(1,m/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(img.src);
+      res(c.toDataURL('image/jpeg',0.9).split(',')[1]);
+    };
+    img.onerror=()=>rej(new Error('image load'));
+    img.src=URL.createObjectURL(file);
+  });
+}
+async function camPicked(inp){
+  const file=inp.files&&inp.files[0];
+  if(!file)return;
+  const btn=document.getElementById('cam-btn');
+  btn.disabled=true;
+  readStatus('<span class="spin"></span>AIが写真を読み取り中…(数秒かかります)');
+  try{
+    const b64=await fileToB64(file);
+    const rule=S.manUnit
+      ?'手書きの数字は万円単位として円に換算する(0.8→8000, 1.5→15000, 13→130000)。'
+      :'手書きの数字はそのまま円として扱う(800→800)。';
+    const prompt='この写真はポケモンカードの逆オークション出品物です。次の情報を読み取り、JSONだけを返してください。前置き、説明、コードブロック記号は一切禁止です。\n'+
+      '{"name":"カード名(カード上部に印刷された名前。例: ひかるセレビィ)","number":"カード下部の型番(例: 004/072)。読めなければnull","grade":"PSA等の鑑定ラベルがあれば簡潔に(例: PSA10)。なければnull","price_text":"手書きの値札シールの数字を書かれたまま(例: 0.8)。なければnull","price_yen":値札を円に換算した整数。なければnull}\n'+
+      '価格のルール: '+rule+'\n読み取れない項目は必ずnullにしてください。';
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:prompt}
+        ]}]
+      })
+    });
+    const data=await resp.json();
+    if(!data.content)throw new Error(data.error?JSON.stringify(data.error):'no content');
+    const text=data.content.map(c=>c.type==='text'?c.text:'').join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    const j=JSON.parse(clean);
+
+    const nameParts=[j.name,j.number,j.grade].filter(x=>x&&x!=='null');
+    if(nameParts.length)document.getElementById('in-name').value=nameParts.join(' ');
+    if(j.price_yen!=null&&isFinite(j.price_yen))document.getElementById('in-price').value=Math.round(j.price_yen);
+
+    let info='<b>読み取り結果</b>(必ず確認してください)<br>';
+    info+='カード名: '+(j.name?esc(j.name):'読めず')+'<br>';
+    info+='型番: '+(j.number?esc(j.number):'読めず')+' / 鑑定: '+(j.grade?esc(j.grade):'なし')+'<br>';
+    info+='値札: '+(j.price_text?esc(String(j.price_text)):'読めず')+
+      (j.price_yen!=null?' → <b>¥'+yen(Math.round(j.price_yen))+'</b>':'');
+    readStatus(info);
+    document.getElementById('in-bidder').focus();
+  }catch(e){
+    console.error(e);
+    readStatus('読み取りに失敗しました。もう一度撮影するか、手入力してください。');
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+/* ---------- 入力 ---------- */
+function addRec(){
+  const nm=document.getElementById('in-name').value.trim();
+  const pr=parseInt(document.getElementById('in-price').value,10);
+  const bd=document.getElementById('in-bidder').value.trim();
+  if(!nm){alert('商品名を入力してください');return}
+  if(!(pr>=0)){alert('落札価格を入力してください');return}
+  if(!bd){alert('落札者を入力してください');return}
+  S.results.push({id:S.seq++,name:nm,price:pr,bidder:bd,time:Date.now(),status:0,ver:0});
+  ['in-name','in-price','in-bidder'].forEach(id=>document.getElementById(id).value='');
+  readStatus(null);
+  save();render();
+  toast(bd+' さん ¥'+yen(pr)+' を記録しました');
+}
+function pickBidder(b){document.getElementById('in-bidder').value=b.textContent}
+
+/* ---------- 照合 ---------- */
+function unverified(){return S.results.filter(r=>r.ver===0)}
+function startCheck(){
+  const ids=unverified().map(r=>r.id);
+  if(!ids.length)return;
+  checking={ids:ids,i:0,fixed:0,matched:0};
+  renderCheck();
+}
+function curCheck(){
+  if(!checking)return null;
+  while(checking.i<checking.ids.length){
+    const r=S.results.find(x=>x.id===checking.ids[checking.i]);
+    if(r&&r.ver===0)return r;
+    checking.i++;
+  }
+  return null;
+}
+function checkOk(){
+  const r=curCheck();if(!r)return;
+  r.ver=1;checking.matched++;checking.i++;
+  save();renderCheck();
+}
+function checkNg(){
+  const r=curCheck();if(!r)return;
+  document.getElementById('fix-name').textContent=r.name;
+  document.getElementById('fix-old').textContent=yen(r.price);
+  document.getElementById('fix-price').value='';
+  setCheckView('fix');
+  document.getElementById('fix-price').focus();
+}
+function fixToTag(){
+  const r=curCheck();if(!r)return;
+  const v=parseInt(document.getElementById('fix-price').value,10);
+  if(!(v>=0)){alert('値札の金額を入力してください');return}
+  r.price=v;r.ver=2;r.sheet=0;checking.fixed++;checking.i++;
+  save();renderCheck();
+  toast('記録を ¥'+yen(v)+' に修正しました');
+}
+function fixToRecord(){
+  const r=curCheck();if(!r)return;
+  r.ver=2;checking.fixed++;checking.i++;
+  save();renderCheck();
+  toast('値札の貼り替えを忘れずに!');
+}
+function cancelFix(){renderCheck()}
+function skipCheck(){
+  if(!checking)return;
+  checking.ids.push(checking.ids[checking.i]);
+  checking.i++;
+  renderCheck();
+}
+function endCheck(){checking=null;render()}
+function setCheckView(v){
+  ['empty','start','main','fix','done'].forEach(x=>
+    document.getElementById('chk-'+x).style.display=(x===v?'block':'none'));
+}
+function renderCheck(){
+  if(!checking){
+    const n=unverified().length;
+    setCheckView(n?'start':'empty');
+    document.getElementById('chk-n').textContent=n;
+    return;
+  }
+  const r=curCheck();
+  if(!r){
+    setCheckView('done');
+    document.getElementById('chk-summary').textContent=
+      '一致 '+checking.matched+'件 / 修正 '+checking.fixed+'件';
+    checking=null;
+    renderNav();
+    return;
+  }
+  setCheckView('main');
+  const total=checking.ids.length;
+  document.getElementById('chk-progress-label').textContent=(checking.i+1)+' / '+total+' 枚目';
+  document.getElementById('chk-bar').style.width=Math.round(checking.i/total*100)+'%';
+  document.getElementById('chk-name').textContent=r.name;
+  document.getElementById('chk-bidder').textContent='名前シール: '+r.bidder+' さん';
+  document.getElementById('chk-price').textContent=yen(r.price);
+}
+
+/* ---------- 精算・発送 ---------- */
+const ST=['未精算','精算済','発送済'];
+const VER=['未照合','一致 ✓','修正済'];
+function cycleStatus(id){
+  const r=S.results.find(x=>x.id===id);if(!r)return;
+  r.status=(r.status+1)%3;save();renderRec();
+}
+function editRec(id){
+  const r=S.results.find(x=>x.id===id);if(!r)return;
+  const p=prompt('落札価格を修正:',r.price);
+  if(p===null)return;
+  const v=parseInt(p,10);
+  if(!(v>=0)){alert('数字で入力してください');return}
+  const b=prompt('落札者名を修正:',r.bidder);
+  if(b===null)return;
+  r.price=v;if(b.trim())r.bidder=b.trim();
+  r.sheet=0;
+  save();render();
+}
+function delRec(id){
+  const r=S.results.find(x=>x.id===id);if(!r)return;
+  if(!confirm('「'+r.name+' / '+r.bidder+'」の記録を削除しますか?'))return;
+  S.results=S.results.filter(x=>x.id!==id);save();render();
+}
+function csvText(){
+  const head='商品名,落札価格,落札者,時刻,照合,状態';
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const rows=S.results.map(r=>[q(r.name),r.price,q(r.bidder),new Date(r.time).toLocaleString('ja-JP'),VER[r.ver],ST[r.status]].join(','));
+  return head+'\n'+rows.join('\n');
+}
+function copyNewRows(){
+  const rows=S.results.filter(r=>!r.sheet);
+  if(!rows.length){toast('未転記の記録はありません');return}
+  const tsv=rows.map(r=>[r.name,r.price,r.bidder,new Date(r.time).toLocaleString('ja-JP'),VER[r.ver],ST[r.status]].join('\t')).join('\n');
+  navigator.clipboard.writeText(tsv).then(()=>{
+    rows.forEach(r=>r.sheet=1);
+    save();renderRec();
+    toast(rows.length+'件をコピーしました。シートに貼り付けてください');
+  },()=>alert('コピーできませんでした。「CSVをコピー」で全件コピーをお試しください'));
+}
+function copyCsv(){
+  navigator.clipboard.writeText(csvText()).then(
+    ()=>toast('CSVをコピーしました'),
+    ()=>alert('コピーできませんでした。「ダウンロード」をお試しください'));
+}
+function downloadCsv(){
+  try{
+    const blob=new Blob(['\ufeff'+csvText()],{type:'text/csv'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='落札記録_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch(e){alert('ダウンロードできませんでした。「コピー」をお試しください')}
+}
+function copyInvoice(bidder){
+  const rs=S.results.filter(r=>r.bidder===bidder);
+  const total=rs.reduce((a,r)=>a+r.price,0);
+  const t=bidder+' 様\n'+rs.map(r=>'・'+r.name+' ¥'+yen(r.price)).join('\n')+'\n合計 '+rs.length+'点 ¥'+yen(total);
+  navigator.clipboard.writeText(t).then(
+    ()=>toast('請求メッセージをコピーしました'),
+    ()=>alert('コピーできませんでした'));
+}
+function clearAll(){
+  if(!confirm('落札記録をすべて削除します。よろしいですか?'))return;
+  S={results:[],seq:1,manUnit:S.manUnit};checking=null;
+  save();render();
+}
+
+/* ---------- render ---------- */
+function render(){renderIn();renderRec();renderCheck();renderNav()}
+function renderNav(){
+  const n=unverified().length;
+  const b=document.getElementById('chk-badge');
+  b.style.display=n?'inline-block':'none';
+  b.textContent=n;
+}
+function renderIn(){
+  const names=[...new Set(S.results.map(r=>r.bidder))].slice(-8).reverse();
+  document.getElementById('in-bidders').innerHTML=names.map(n=>
+    '<button onclick="pickBidder(this)">'+esc(n)+'</button>').join('');
+  document.getElementById('man-unit').checked=!!S.manUnit;
+}
+function renderRec(){
+  document.getElementById('rec-count').textContent=S.results.length?S.results.length+'件':'';
+  const nNew=S.results.filter(r=>!r.sheet).length;
+  const sb=document.getElementById('sheet-btn');
+  sb.textContent='シート転記用コピー'+(nNew?'(未転記 '+nNew+'件)':'');
+  sb.disabled=!nNew;
+  const tb=document.getElementById('rec-body');
+  tb.innerHTML=[...S.results].reverse().map(r=>{
+    const vc=r.ver===1?'ok':(r.ver===2?'fix':'no');
+    return '<tr>'+
+    '<td class="muted">'+new Date(r.time).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})+'</td>'+
+    '<td>'+esc(r.name)+'</td>'+
+    '<td class="pr">¥'+yen(r.price)+'</td>'+
+    '<td>'+esc(r.bidder)+'</td>'+
+    '<td><span class="vmark '+vc+'">'+VER[r.ver]+'</span></td>'+
+    '<td><button class="st s'+r.status+'" onclick="cycleStatus('+r.id+')">'+ST[r.status]+'</button></td>'+
+    '<td style="white-space:nowrap"><button class="mini" onclick="editRec('+r.id+')">編集</button><button class="mini danger" onclick="delRec('+r.id+')">削除</button></td>'+
+    '</tr>';}).join('')||'<tr><td colspan="7" class="muted" style="text-align:center;padding:16px">まだ落札がありません</td></tr>';
+
+  const by={};
+  S.results.forEach(r=>{(by[r.bidder]=by[r.bidder]||[]).push(r)});
+  const names=Object.keys(by);
+  document.getElementById('sum-list').innerHTML=names.length?names.map(n=>{
+    const rs=by[n],total=rs.reduce((a,r)=>a+r.price,0);
+    const unv=rs.some(r=>r.ver===0);
+    const done=rs.every(r=>r.status===2);
+    return '<div class="sum-card"><div class="row">'+
+      '<div class="grow"><b>'+esc(n)+'</b> <span class="muted">'+rs.length+'点'+
+      (unv?' / <span style="color:var(--red)">未照合あり</span>':'')+(done?' / 発送済':'')+'</span></div>'+
+      '<div class="total">¥'+yen(total)+'</div>'+
+      '<button class="ghost" onclick="copyInvoice(\''+esc(n).replace(/'/g,"\\'")+'\')">請求文コピー</button>'+
+      '</div></div>';
+  }).join(''):'<div class="card empty" style="padding:16px">落札を記録するとここに集計されます</div>';
+}
+
+/* ---------- 起動 ---------- */
+(async function(){
+  await loadState();
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+  render();
+})();
+</script>
+</body>
+</html>
